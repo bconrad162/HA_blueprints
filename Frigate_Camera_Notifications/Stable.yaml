@@ -936,7 +936,6 @@ triggers:
     id: custom
 variables:
   input_camera: !input camera
-  input_camera_name: "{{input_camera|expand|map(attribute='attributes.camera_name', default='none')|list}}"
   camera: "{{trigger.payload_json['after']['camera'] if trigger.id == 'frigate-event'}}"
   camera_name: "{{ camera | replace('_', ' ') | title }}"
   input_severity: !input review_severity
@@ -1012,9 +1011,6 @@ conditions:
       conditions:
         - condition: trigger
           id: frigate-event
-        - alias: Camera Match
-          condition: template
-          value_template: "{{ input_camera_name|select('equalto', camera)|list|length>0 }}"
         - alias: Master Condition
           condition: !input master_condition
         - alias: Cooldown
@@ -1050,6 +1046,24 @@ actions:
           - condition: trigger
             id: "frigate-event"
         sequence:
+          - alias: "Camera Match Retry"
+            repeat:
+              sequence:
+                - wait_template: >
+                    {% set names = expand(input_camera)|map(attribute='attributes.camera_name', default='none')|list %}
+                    {{ names|select('equalto', camera)|list|length>0 }}
+                  timeout: "00:00:00.1"
+                  continue_on_timeout: true
+              until:
+                - condition: template
+                  value_template: >
+                    {% set names = expand(input_camera)|map(attribute='attributes.camera_name', default='none')|list %}
+                    {{ names|select('equalto', camera)|list|length>0 or repeat.index >= 30 }}
+          - alias: "Camera Match"
+            condition: template
+            value_template: >
+              {% set names = expand(input_camera)|map(attribute='attributes.camera_name', default='none')|list %}
+              {{ names|select('equalto', camera)|list|length>0 }}
           - variables:
               event: "{{ trigger.payload_json }}"
               detections: "{{ event['after']['data']['detections'] }}"
