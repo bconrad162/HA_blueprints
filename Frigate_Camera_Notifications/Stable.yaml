@@ -1050,20 +1050,23 @@ actions:
             repeat:
               sequence:
                 - wait_template: >
-                    {% set names = expand(input_camera)|map(attribute='attributes.camera_name', default='none')|list %}
-                    {{ names|select('equalto', camera)|list|length>0 }}
+                    {% set cams = input_camera if input_camera is iterable and (input_camera is not string) else [input_camera] %}
+                    {% set names = cams | select('string') | map('regex_replace', '^.+\\.', '') | list %}
+                    {{ camera in names }}
                   timeout: "00:00:00.1"
                   continue_on_timeout: true
               until:
                 - condition: template
                   value_template: >
-                    {% set names = expand(input_camera)|map(attribute='attributes.camera_name', default='none')|list %}
-                    {{ names|select('equalto', camera)|list|length>0 or repeat.index >= 30 }}
+                    {% set cams = input_camera if input_camera is iterable and (input_camera is not string) else [input_camera] %}
+                    {% set names = cams | select('string') | map('regex_replace', '^.+\\.', '') | list %}
+                    {{ camera in names or repeat.index >= 30 }}
           - alias: "Camera Match"
             condition: template
             value_template: >
-              {% set names = expand(input_camera)|map(attribute='attributes.camera_name', default='none')|list %}
-              {{ names|select('equalto', camera)|list|length>0 }}
+              {% set cams = input_camera if input_camera is iterable and (input_camera is not string) else [input_camera] %}
+              {% set names = cams | select('string') | map('regex_replace', '^.+\\.', '') | list %}
+              {{ camera in names }}
           - variables:
               event: "{{ trigger.payload_json }}"
               detections: "{{ event['after']['data']['detections'] }}"
